@@ -1,7 +1,7 @@
 Flask>=1.1.2
 Werkzeug==1.0.1
 markupsafe==2.0.1
-
+Pillow==9.5.0
 tensorflow
 numpy==1.23.5
 scipy==1.9.3
