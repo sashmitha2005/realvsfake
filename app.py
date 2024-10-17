@@ -8,12 +8,18 @@ from scipy.spatial.distance import euclidean
 
 app = Flask(__name__)
 
-# Load the trained model
-model = load_model('final_model.h5')
+# Load the trained model (Ensure the model file is in the correct path)
+model = load_model(os.path.join(os.getcwd(), 'final_model.h5'))
 
+# Set the folder for saving uploaded files
 UPLOAD_FOLDER = 'static/uploads/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# Create the upload folder if it doesn't exist
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+# Set the prediction threshold (adjust this based on your model's evaluation)
 THRESHOLD = 0.44  # Pre-calculated threshold from your previous code
 
 # Preprocess the image for prediction
@@ -43,26 +49,32 @@ def predict():
         return redirect(request.url)
 
     if file:
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-        file.save(filepath)
+        try:
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+            file.save(filepath)
 
-        # Preprocess the uploaded image
-        image = preprocess_image(filepath)
+            # Preprocess the uploaded image
+            image = preprocess_image(filepath)
 
-        # Make prediction
-        prediction = model.predict(image)
-        
-        # For now, we compare the first value of prediction against threshold
-        # You may modify this if your model outputs multiple values
-        distance = calculate_euclidean_distance(prediction[0], np.array([0.5]))  # Assuming centroid is around [0.5]
-        
-        # Apply threshold to determine if 'Real' or 'Fake'
-        if distance <= THRESHOLD:
-            label = 'Real'
-        else:
-            label = 'Fake'
+            # Make prediction
+            prediction = model.predict(image)
+            
+            # For now, we compare the first value of prediction against threshold
+            # You may modify this if your model outputs multiple values
+            distance = calculate_euclidean_distance(prediction[0], np.array([0.5]))  # Assuming centroid is around [0.5]
+            
+            # Apply threshold to determine if 'Real' or 'Fake'
+            if distance <= THRESHOLD:
+                label = 'Real'
+            else:
+                label = 'Fake'
 
-        return render_template('result.html', label=label, filepath=filepath)
+            return render_template('result.html', label=label, filepath=filepath)
+
+        except Exception as e:
+            # Log the error and return an error message
+            print(f"Error during prediction: {e}")
+            return "An error occurred during prediction. Please try again."
 
 # Evaluation function to help improve threshold tuning
 def evaluate_model(model, validation_data):
@@ -95,4 +107,5 @@ def evaluate_model(model, validation_data):
     print("Classification Report:\n", report)
 
 if __name__ == '__main__':
+    # Make sure to use a WSGI server like Gunicorn for production
     app.run(debug=True)
