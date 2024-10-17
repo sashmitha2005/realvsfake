@@ -1,5 +1,5 @@
 Flask==2.2.3
-tensorflow==2.9.1
+tensorflow
 numpy==1.23.5
 scipy==1.9.3
 scikit-learn==1.1.3
