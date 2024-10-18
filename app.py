@@ -1,15 +1,23 @@
 from flask import Flask, render_template, request, redirect, url_for
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing.image import img_to_array, load_img
 import numpy as np
 import os
+from tensorflow.lite.python.interpreter import Interpreter
 from sklearn.metrics import confusion_matrix, classification_report
 from scipy.spatial.distance import euclidean
+from tensorflow.keras.preprocessing.image import img_to_array, load_img
 
 app = Flask(__name__)
 
-# Load the trained model (Ensure the model file is in the correct path)
-model = load_model(os.path.join(os.getcwd(), 'final_model.h5'))
+# Load the TensorFlow Lite model
+TFLITE_MODEL_PATH = os.path.join(os.getcwd(), 'final_model.tflite')
+
+# Initialize the TFLite interpreter
+interpreter = Interpreter(model_path=TFLITE_MODEL_PATH)
+interpreter.allocate_tensors()
+
+# Get input and output details
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
 
 # Set the folder for saving uploaded files
 UPLOAD_FOLDER = 'static/uploads/'
@@ -56,9 +64,15 @@ def predict():
             # Preprocess the uploaded image
             image = preprocess_image(filepath)
 
-            # Make prediction
-            prediction = model.predict(image)
-            
+            # Set the image as input to the TensorFlow Lite model
+            interpreter.set_tensor(input_details[0]['index'], image)
+
+            # Run inference
+            interpreter.invoke()
+
+            # Get the model's output
+            prediction = interpreter.get_tensor(output_details[0]['index'])
+
             # For now, we compare the first value of prediction against threshold
             # You may modify this if your model outputs multiple values
             distance = calculate_euclidean_distance(prediction[0], np.array([0.5]))  # Assuming centroid is around [0.5]
@@ -77,7 +91,7 @@ def predict():
             return "An error occurred during prediction. Please try again."
 
 # Evaluation function to help improve threshold tuning
-def evaluate_model(model, validation_data):
+def evaluate_model(interpreter, validation_data):
     y_true = []  # Actual labels
     y_pred = []  # Predicted labels
 
@@ -85,8 +99,14 @@ def evaluate_model(model, validation_data):
         # Preprocess the image
         image = preprocess_image(image_path)
 
-        # Make prediction
-        prediction = model.predict(image)
+        # Set the image as input to the TensorFlow Lite model
+        interpreter.set_tensor(input_details[0]['index'], image)
+
+        # Run inference
+        interpreter.invoke()
+
+        # Get the model's output
+        prediction = interpreter.get_tensor(output_details[0]['index'])
 
         # Calculate Euclidean distance from the prediction
         distance = calculate_euclidean_distance(prediction[0], np.array([0.5]))  # Assuming centroid [0.5]
